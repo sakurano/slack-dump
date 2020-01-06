@@ -59,7 +59,7 @@ func main() {
 			Email: "myoshi321go@gmail.com",
 		},
 	}
-	app.Version = "1.1.3"
+	app.Version = "1.1.4"
 	app.Action = func(c *cli.Context) {
 		token := c.String("token")
 		if token == "" {
@@ -264,11 +264,12 @@ func dumpChannels(api *slack.Client, dir string, rooms []string) []slack.Channel
 	return channels
 }
 
-func dumpGroups(api *slack.Client, dir string, rooms []string) []slack.Group {
-	groups, err := api.GetGroups(false)
+func dumpGroups(api *slack.Client, dir string, rooms []string) []slack.Channel {
+        conv := slack.GetConversationsParameters{Cursor: "", ExcludeArchived: "false", Limit: 1000, Types: []string{"private_channel","mpim"}}
+	groups, _, err := api.GetConversations(&conv)
 	check(err)
 	if len(rooms) > 0 {
-		groups = FilterGroups(groups, func(group slack.Group) bool {
+		groups = FilterGroups(groups, func(group slack.Channel) bool {
 			for _, room := range rooms {
 				if room == group.Name {
 					return true
@@ -279,7 +280,7 @@ func dumpGroups(api *slack.Client, dir string, rooms []string) []slack.Group {
 	}
 
 	if len(groups) == 0 {
-		var groups []slack.Group
+		var groups []slack.Channel
 		return groups
 	}
 
@@ -342,30 +343,17 @@ func writeMessagesFile(messages []slack.Message, dir string, channelPath string,
 }
 
 func fetchGroupHistory(api *slack.Client, ID string) []slack.Message {
-	historyParams := slack.NewHistoryParameters()
-	historyParams.Count = 1000
+	//historyParams := slack.NewHistoryParameters()
+	//historyParams.Count = 1000
 
 	// Fetch History
-	history, err := api.GetGroupHistory(ID, historyParams)
+	//history, err := api.GetGroupHistory(ID, historyParams)
+	par := slack.GetConversationHistoryParameters{
+		ChannelID: ID, Cursor: "", Inclusive: true, Latest: "", Limit: 0, Oldest: "",
+	}
+	history, err := api.GetConversationHistory(&par)
 	check(err)
 	messages := history.Messages
-	if len(messages) > 0 {
-		latest := messages[len(messages)-1].Timestamp
-		for {
-			if history.HasMore != true {
-				break
-			}
-
-			historyParams.Latest = latest
-			history, err = api.GetGroupHistory(ID, historyParams)
-			check(err)
-			length := len(history.Messages)
-			if length > 0 {
-				latest = history.Messages[length-1].Timestamp
-				messages = append(messages, history.Messages...)
-			}
-		}
-	}
 
 	return messages
 }
@@ -378,6 +366,9 @@ func fetchChannelHistory(api *slack.Client, ID string) []slack.Message {
 	history, err := api.GetChannelHistory(ID, historyParams)
 	check(err)
 	messages := history.Messages
+	if len(messages) == 0 {
+		return messages
+	}
 	latest := messages[len(messages)-1].Timestamp
 	for {
 		if history.HasMore != true {
@@ -452,8 +443,8 @@ func parseTimestamp(timestamp string) *time.Time {
 
 // FilterGroups returns a new slice holding only
 // the elements of s that satisfy f()
-func FilterGroups(s []slack.Group, fn func(slack.Group) bool) []slack.Group {
-	var p []slack.Group // == nil
+func FilterGroups(s []slack.Channel, fn func(slack.Channel) bool) []slack.Channel {
+	var p []slack.Channel // == nil
 	for _, v := range s {
 		if fn(v) {
 			p = append(p, v)

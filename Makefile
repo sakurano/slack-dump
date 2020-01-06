@@ -12,9 +12,8 @@ update-deps:
 
 gox: clean
 	gox -verbose \
-	-os="linux darwin windows" \
-	-arch="amd64 386 arm64" \
-	-osarch="!darwin/arm64" \
+	-os="linux" \
+	-arch="amd64" \
 	-output="dist/{{.OS}}-{{.Arch}}/{{.Dir}}" . && \
 	cd dist && \
 	find * -type d -exec cp ../LICENSE {} \; && \
