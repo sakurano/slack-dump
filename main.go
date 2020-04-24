@@ -18,7 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/nlopes/slack"
-	"github.com/urfave/cli"
+  "gopkg.in/urfave/cli.v1"
 )
 
 func check(e error) {
@@ -354,6 +354,15 @@ func fetchGroupHistory(api *slack.Client, ID string) []slack.Message {
 	history, err := api.GetConversationHistory(&par)
 	check(err)
 	messages := history.Messages
+
+	for history.HasMore {
+		par := slack.GetConversationHistoryParameters{
+			ChannelID: ID, Cursor: history.ResponseMetaData.NextCursor, Inclusive: true, Latest: "", Limit: 0, Oldest: "",
+		}
+		history, err = api.GetConversationHistory(&par)
+		check(err)
+		messages = append(messages, history.Messages...)
+	}
 
 	return messages
 }
